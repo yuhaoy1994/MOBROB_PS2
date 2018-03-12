@@ -4,6 +4,8 @@ global Param;
 global Data;
 global State;
 
+close all;
+
 if ~exist('pauseLen','var')
     pauseLen = 0.3; % seconds
 end
@@ -46,6 +48,7 @@ end
 %===================================================
 State.Ekf.mu = Param.initialStateMean;
 State.Ekf.Sigma = zeros(3);
+State.Ekf.da_known = [];
 
 
 for t = 1:numSteps
@@ -57,15 +60,32 @@ for t = 1:numSteps
     u = getControl(t);
     z = getObservations(t);
 
-
     %=================================================
     %TODO: update your filter here based upon the
     %      motionCommand and observation
     %=================================================
+    ekfpredict_sim(u);
+    ekfupdate(z);
 
     %=================================================
     %TODO: plot and evaluate filter results here
     %=================================================
+    % plot robot 
+    rob_pos = State.Ekf.mu(1:3);
+    rob_pos_cov = State.Ekf.Sigma(1:3, 1:3);
+
+    plotrobot( rob_pos(1), rob_pos(2), rob_pos(3), 'green', 1, 'green');
+    plotcov2d( rob_pos(1), rob_pos(2), rob_pos_cov, 'blue', 0, 0, 0, 3);
+
+    
+
+    % plot landmark
+    for i = 1 : (length(State.Ekf.mu)-3)/2
+        mi = [State.Ekf.mu(3 + 2*i-1); State.Ekf.mu(3 + 2*i);];
+        ci = State.Ekf.Sigma(3 + 2*i-1 : 3 + 2*i, 3 + 2*i-1 : 3 + 2*i); 
+        plot(mi(1), mi(2), '*')
+        plotcov2d( mi(1), mi(2), rob_pos_cov, 'blue', 0, 0, 0, 3);
+    end
 
 
     drawnow;
