@@ -20,7 +20,7 @@ for j = 1 : length(z)
 
 	if li < 0
 		li = length(State.Ekf.da_known) + 1;
-		State.Ekf.da_known = [State.Ekf.da_known; markerId];
+		State.Ekf.da_known = [State.Ekf.da_known; id];
 	end
 	Li = [Li, li];
 end
