@@ -65,7 +65,7 @@ for t = 1:numSteps
     %      motionCommand and observation
     %=================================================
     ekfpredict_sim(u);
-    ekfupdate(z);
+    ekfupdate(z, 'batch');
 
     %=================================================
     %TODO: plot and evaluate filter results here
