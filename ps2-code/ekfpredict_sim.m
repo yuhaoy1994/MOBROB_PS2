@@ -13,6 +13,7 @@ R = diag([Param.alphas(1)*u(1)^2 + Param.alphas(2)*u(2)^2;
 rob_mu = State.Ekf.mu(1:3);
 th = rob_mu(3) + u(1);
 State.Ekf.mu(1:3) = rob_mu + [u(2) * cos(th); u(2) * sin(th); u(1)+u(3)];
+State.Ekf.mu(3) = wrapToPi(State.Ekf.mu(3));
 
 % compute jacobian
 % Jacobian wrt state
