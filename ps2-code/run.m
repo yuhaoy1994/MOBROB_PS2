@@ -30,6 +30,7 @@ function varargout = run(numSteps, choice, pauseLen, da)
 
 addpath('./slamsim');
 addpath('./vicpark');
+addpath('../external');
 
 if ~exist('pauseLen', 'var') || isempty(pauseLen)
     pauseLen = [];

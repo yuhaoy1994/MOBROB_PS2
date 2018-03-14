@@ -68,7 +68,7 @@ case 'batch'
 
 
 
-case 'sequtial'
+case 'sequential'
 
 	for i = 1 : size(z,2)
 		% see if we already known this marker

@@ -30,6 +30,10 @@ Param.R = diag(Param.beta.^2);
 % Step size between filter updates, can be less than 1.
 Param.deltaT=0.1; % [s]
 
+% threshold to determine whether an observation is new landmark or not
+Param.nnthres = 130;
+
+
 if isscalar(stepsOrData)
     % Generate a data set of motion and sensor info consistent with
     % noise models.
@@ -65,7 +69,7 @@ for t = 1:numSteps
     %      motionCommand and observation
     %=================================================
     ekfpredict_sim(u);
-    ekfupdate(z, 'batch');
+    ekfupdate(z, 'sequential');
 
     %=================================================
     %TODO: plot and evaluate filter results here
