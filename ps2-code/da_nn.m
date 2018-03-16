@@ -4,14 +4,14 @@ function Li = da_nn(z, R)
 global Param;
 global State;
 
-Li = [];
+Li = zeros(1,size(z,2));
 
 
 % if no landmarks observed before
 if length(State.Ekf.mu) <= 3
 	for i = 1 : size(z,2)
 
-		Li = [Li, i];
+		Li(i) = i;
 
 	end
 else
@@ -22,7 +22,7 @@ else
 	lm = State.Ekf.mu(4:end);
 	lm = reshape(lm, [2, length(lm)/2]);
 
-	% measurement prediction
+	% measurement predicted from map
 	z_pred = [pdist2(mu(1:2)', lm');
 			  arrayfun(@wrapToPi, atan2(lm(2,:)-mu(2), lm(1,:)-mu(1)) - mu(3))];
 
@@ -44,22 +44,61 @@ else
 		% Compute Innovation Covariance
 		S = H * State.Ekf.Sigma * H' + Param.R;	
 		
-
-		costMat = [costMat; pdist2(z_pred(:,i)', z', 'mahalanobis', S)];
+		delta_z = [z_pred(1,i) - z(1,:);
+				  arrayfun(@wrapToPi, z_pred(2,i) - z(2,:))];
+		costMat = [costMat; pdist2(zeros(1,2), delta_z', 'mahalanobis', S)];
 
 	end
 
-	[assign, cost] = munkres(costMat);
 
-	% get assignment
-	for i = 1 : size(z,2)
-		idx = find(assign(:,i));
-		% check if distance is within threshold
-		if costMat(idx, i)^2 < 5.991 % 95% confidence
-			Li = [Li, idx];	
+	while 1
+		done = true;
+		Li_tmp = [];
+		[assign, cost] = munkres(costMat);
+		% get assignment
+		for i = 1 : size(assign,2)
+			idx = find(assign(:,i));
+
+			% check ambiguilty
+			cost = costMat(:, i);
+			if nnz(abs(cost - costMat(idx,i)) < 0.1) >= 2
+				costMat(:,i) = []; % discard this measurement
+				
+				num_discard = nnz(Li == -1);
+				Li(i+num_discard) = -1; % discarded measurement marked as -1
+				done = false;
+				break;
+			end
+
+			% check compartibility
+			if costMat(idx,i)^2 < chi2inv(0.95,2)
+				Li_tmp = [Li_tmp, idx];
+			else
+				% new landmark
+				Li_tmp = [Li_tmp, size(lm,2)+1];
+			end
+		end		
+
+		if done 
+			break;
+		end
+
+	end
+
+	% copy Li_tmp into Li
+	j = 1;
+	num_mapped = size(lm,2);
+	for i = 1 : length(Li)
+		if Li(i) == -1
+			continue;
 		else
-			% new landmark
-			Li = [Li, size(lm,2)+1];
+			if Li_tmp(j) > size(lm,2)
+				Li(i) = num_mapped + 1;
+				num_mapped = num_mapped + 1;
+			else
+				Li(i) = Li_tmp(j);
+			end
+			j = j + 1;
 		end
 	end
 

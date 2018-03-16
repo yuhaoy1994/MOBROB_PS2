@@ -31,6 +31,11 @@ case 'batch'
 
 	H = [];
 	for i = 1 : size(z,2)
+
+		if Li(i) == -1
+			continue;
+		end
+
 		% get landmark location
 		mi = [State.Ekf.mu(3+2*Li(i)-1); State.Ekf.mu(3+2*Li(i))];
 		m = [m, mi];
@@ -71,14 +76,22 @@ case 'batch'
 case 'sequential'
 
 	for i = 1 : size(z,2)
+
+		if Li(i) == -1
+			continue;
+		end
+
 		% see if we already known this marker
-
-
 		if 2*Li(i) > length(State.Ekf.mu) - 3
 			initialize_new_landmark(z(:,i), Param.R);
-		end
+        end
+        try 
 		% get old estimation of ith landmark
 		mi = [State.Ekf.mu(3+2*Li(i)-1); State.Ekf.mu(3+2*Li(i))];
+        catch ME
+            save('err.mat');
+            rethrow(ME);
+        end
 		% current prediction of rob pose
 		mu = State.Ekf.mu(1:3);
 
