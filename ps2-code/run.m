@@ -55,7 +55,7 @@ Param.dataAssociation = da;
 % select which update method to use in ekfupdate.m, choices are:
 %   batch  - batch updates
 %   seq    - sequential updates
-Param.updateMethod = 'batch';
+Param.updateMethod = 'seq';
 
 % size of bounding box for VP data set plotting
 Param.bbox = 0; % bbox = 20 [m] speeds up graphics

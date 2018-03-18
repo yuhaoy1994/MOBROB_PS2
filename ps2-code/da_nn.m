@@ -18,13 +18,19 @@ else
 
 	mu = State.Ekf.mu(1:3);
 
-	% from measurement to location
+	% get mapped landmarks
 	lm = State.Ekf.mu(4:end);
 	lm = reshape(lm, [2, length(lm)/2]);
 
 	% measurement predicted from map
-	z_pred = [pdist2(mu(1:2)', lm');
-			  arrayfun(@wrapToPi, atan2(lm(2,:)-mu(2), lm(1,:)-mu(1)) - mu(3))];
+	switch Param.choice
+	case 'sim'
+		z_pred = [pdist2(mu(1:2)', lm');
+				  arrayfun(@wrapToPi, atan2(lm(2,:)-mu(2), lm(1,:)-mu(1)) - mu(3))];
+	case 'vp'
+		z_pred = [pdist2(mu(1:2)', lm');
+				  arrayfun(@wrapToPi, atan2(lm(2,:)-mu(2), lm(1,:)-mu(1)) - mu(3) + pi/2)];
+	end
 
 	% mahalanobis distance
 	costMat = [];
@@ -46,7 +52,21 @@ else
 		
 		delta_z = [z_pred(1,i) - z(1,:);
 				  arrayfun(@wrapToPi, z_pred(2,i) - z(2,:))];
-		costMat = [costMat; pdist2(zeros(1,2), delta_z', 'mahalanobis', S)];
+		try 
+			costMat = [costMat; pdist2(zeros(1,2), delta_z', 'mahalanobis', S)];
+			% costMat = [costMat; diag(delta_z'/S*delta_z)'];
+		catch ME
+            if strcmp(ME.identifier, 'stats:pdist2:InvalidCov') % sometimes I get this wield error from MATLAB when S is PSD
+                [~, p] = chol(S);
+                if p == 0 && rank(S) == size(S,1)
+                    costMat = [costMat; diag(delta_z'/S*delta_z)'];
+                else
+                    rethrow(ME);
+                end
+            else
+                rethrow(ME);
+            end
+		end
 
 	end
 
@@ -59,9 +79,16 @@ else
 		for i = 1 : size(assign,2)
 			idx = find(assign(:,i));
 
+			% if not assign, probably a new landmark
+			if isempty(idx)
+				% spurious measurement
+				Li_tmp = [Li_tmp, size(lm,2)+1];
+				continue;
+			end
+
 			% check ambiguilty
 			cost = costMat(:, i);
-			if nnz(abs(cost - costMat(idx,i)) < 0.1) >= 2
+			if nnz(abs(cost - costMat(idx,i)) < 0.5) >= 2
 				costMat(:,i) = []; % discard this measurement
 				
 				num_discard = nnz(Li == -1);
@@ -71,7 +98,7 @@ else
 			end
 
 			% check compartibility
-			if costMat(idx,i)^2 < chi2inv(0.95,2)
+			if costMat(idx,i)^2 < chi2inv(0.99,2)
 				Li_tmp = [Li_tmp, idx];
 			else
 				% new landmark

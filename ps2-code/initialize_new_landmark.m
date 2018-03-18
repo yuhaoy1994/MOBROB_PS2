@@ -9,17 +9,31 @@ r = z(1);
 theta = z(2) + mu(3);
 
 % predict average location
-mi_x = mu(1) + r * cos(theta);
-mi_y = mu(2) + r * sin(theta);
+switch Param.choice
+	case 'sim'
+		mi_x = mu(1) + r * cos(theta);
+		mi_y = mu(2) + r * sin(theta);
+		% Jacobian wrt rob state
+		Fx = [1, 0, -r*sin(theta);
+			  0, 1,  r*cos(theta)];
+
+		% Jacobian wrt senser noise
+		Fe = [cos(theta), -r*sin(theta);
+			  sin(theta), r*cos(theta)];
+	case 'vp'
+		mi_x = mu(1) + r * cos(theta - pi/2);
+		mi_y = mu(2) + r * sin(theta - pi/2);
+		% Jacobian wrt rob state
+		Fx = [1, 0, -r*sin(theta - pi/2);
+			  0, 1,  r*cos(theta - pi/2)];
+
+		% Jacobian wrt senser noise
+		Fe = [cos(theta-pi/2), -r*sin(theta-pi/2);
+			  sin(theta-pi/2), r*cos(theta-pi/2)];
+end
+		
 
 % compute uncertainty 
-% Jacobian wrt rob state
-Fx = [1, 0, -r*sin(theta);
-	  0, 1,  r*cos(theta)];
-
-% Jacobian wrt senser noise
-Fe = [cos(theta), -r*sin(theta);
-	  sin(theta), r*cos(theta)];
 
 
 % augment covariance

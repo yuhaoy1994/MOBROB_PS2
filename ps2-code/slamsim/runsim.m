@@ -12,6 +12,10 @@ end
 
 % Initalize Params
 %===================================================
+
+Param.choice = 'sim';
+
+
 Param.initialStateMean = [180 50 0]';
 
 % max number of landmark observations per timestep
@@ -69,7 +73,7 @@ for t = 1:numSteps
     %      motionCommand and observation
     %=================================================
     ekfpredict_sim(u);
-    ekfupdate(z, 'sequential');
+    ekfupdate(z);
 
     %=================================================
     %TODO: plot and evaluate filter results here

@@ -1,4 +1,4 @@
-function ekfupdate(z, mode)
+function ekfupdate(z)
 % EKF-SLAM update step for both simulator and Victoria Park data set
 
 global Param;
@@ -12,13 +12,14 @@ switch lower(Param.dataAssociation)
         Li = da_known(z(3,:));
     case 'nn'
         Li = da_nn(z(1:2,:), Param.R);
+        Li1 = da_nn_sol(z(1:2,:), Param.R);
     case 'jcbb'
         Li = da_jcbb(z(1:2,:), Param.R);
     otherwise
         error('unrecognized data association method: "%s"', Param.dataAssociation);
 end
 
-switch mode
+switch Param.updateMethod
 case 'batch'
 	m = [];
 	mu = State.Ekf.mu(1:3);
@@ -50,30 +51,38 @@ case 'batch'
 		% to state space
 		H = [H; Hi * A];		 
 	end
-	S = H * State.Ekf.Sigma * H' + kron(eye(size(z,2)), Param.R);
+	S = H * State.Ekf.Sigma * H' + kron(eye(nnz(Li ~= -1)), Param.R);
 	K = State.Ekf.Sigma * H' / S;
 
 	% current prediction of state
-	mu = repmat(mu, [1, size(z,2)]);
+	mu = repmat(mu, [1, size(m,2)]);
 
 	% predict measurement
-	z_hat = [ sqrt(sum((m - mu(1:2,:)).^2));
+	switch Param.choice
+	case 'sim'
+		z_hat = [ sqrt(sum((m - mu(1:2,:)).^2));
 			  arrayfun(@wrapToPi, atan2(m(2,:) - mu(2,:), m(1,:) - mu(1,:)) - mu(3,:));
 			];
+	case 'vp'
+		z_hat = [ sqrt(sum((m - mu(1:2,:)).^2));
+			  arrayfun(@wrapToPi, atan2(m(2,:) - mu(2,:), m(1,:) - mu(1,:)) - mu(3,:) + pi/2);
+			];
+	end
 
 
-	dz = z(1:2,:) - z_hat;
+
+	dz = z(1:2,Li~=-1) - z_hat;
 	dz(2,:) = arrayfun(@wrapToPi, dz(2,:));
 
 	% reshape to column vector
-	dz = reshape(dz, [size(z,2)*2, 1]);    
+	dz = reshape(dz, [nnz(Li~=-1)*2, 1]);    
     % correction
 	State.Ekf.mu = State.Ekf.mu + K * dz;
 	State.Ekf.Sigma = (eye(length(State.Ekf.mu)) - K*H) * State.Ekf.Sigma;
 
 
 
-case 'sequential'
+case 'seq'
 
 	for i = 1 : size(z,2)
 
@@ -96,7 +105,12 @@ case 'sequential'
 		mu = State.Ekf.mu(1:3);
 
 		% predict measurement
-		z_hat = [norm(mi - mu(1:2)); wrapToPi(atan2(-mu(2)+mi(2), -mu(1)+mi(1)) - mu(3))];
+		switch Param.choice
+		case 'sim'
+			z_hat = [norm(mi - mu(1:2)); wrapToPi(atan2(-mu(2)+mi(2), -mu(1)+mi(1)) - mu(3))];
+		case 'vp'
+			z_hat = [norm(mi - mu(1:2)); wrapToPi(atan2(-mu(2)+mi(2), -mu(1)+mi(1)) - mu(3) + pi/2)];
+		end
 
 		% Jacobian wrt rob pose & observed lm
 		q = norm(mi - mu(1:2))^2;
