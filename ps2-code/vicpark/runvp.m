@@ -53,11 +53,17 @@ global AAr;
 AAr = [0:360]*pi/360;
 
 
-% figure(1); clf;
-% axis equal;
+figure(1); clf;
+axis equal;
 
 
 traj = [];
+pred_t = [];
+n_features1 = [];
+
+up_t = [];
+n_features2 = [];
+
 ci = 1; % control index
 t = min(Data.Laser.time(1), Data.Control.time(1));
 for k=1:min(nSteps, length(Data.Laser.time))
@@ -67,8 +73,11 @@ for k=1:min(nSteps, length(Data.Laser.time))
        dt = Data.Control.time(ci) - t;
        t = Data.Control.time(ci);
        u = [Data.Control.ve(ci), Data.Control.alpha(ci)]';
-
-       ekfpredict_vp_sol(u, dt);
+       tic
+       ekfpredict_vp(u, dt);
+       time_taken = toc;
+       pred_t = [pred_t, time_taken];
+       n_features1 = [n_features1, 0.5 * (length(State.Ekf.mu)-3)];
        traj = [traj, [State.Ekf.mu(1); State.Ekf.mu(2)]];
        
        ci = ci+1;
@@ -80,8 +89,11 @@ for k=1:min(nSteps, length(Data.Laser.time))
     z = detectTreesI16(Data.Laser.ranges(k,:));
 
     
-
+    tic
     ekfupdate(z);
+    time_taken = toc;
+    up_t = [up_t, time_taken];
+    n_features2 = [n_features2, 0.5 * (length(State.Ekf.mu)-3)];
     traj = [traj, [State.Ekf.mu(1); State.Ekf.mu(2)]];
 
     for i = 1 : length(Data.Gps.time)
@@ -94,7 +106,7 @@ for k=1:min(nSteps, length(Data.Laser.time))
       warning('Gps used up\n');
     end
 
-    gt_traj = [Data.Gps.x(1:i)'; Data.Gps.y(1:i)'];
+    gt_traj = [Data.Gps.x(1:max(1,i-1))'; Data.Gps.y(1:max(1,i-1))'];
 
     doGraphics(z, traj, gt_traj);
     drawnow;
@@ -102,7 +114,12 @@ for k=1:min(nSteps, length(Data.Laser.time))
         pause(pauseLen);
     end
 end
-
+figure;
+plot(n_features1, pred_t, 'b^')
+title('update time vs # of features');
+figure;
+plot(n_features2, up_t, 'b^');
+title('update time vs # of features');
 
 
 
@@ -148,8 +165,8 @@ for i = 1 : (length(State.Ekf.mu) - 3)/2
 end
 
 % plot trajectory
-plot(traj(1,:), traj(2,:), 'r'), hold on
-plot(gt_traj(1,:), gt_traj(2,:), 'b');
+plot(traj(1,:), traj(2,:), 'k'), hold on
+scatter(gt_traj(1,:), gt_traj(2,:), 'b^');
 
 hold off;
 

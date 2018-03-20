@@ -5,7 +5,9 @@ global Param;
 
 	% if at leaf, return
 	if level > size(zz,2)
-		if nnz(H) > nnz(best)
+		if isempty(best)
+			best = H;
+		elseif nnz(H) > nnz(best)
 			best = H;
 		end
 

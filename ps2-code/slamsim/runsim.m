@@ -3,18 +3,36 @@ function varargout = runsim(stepsOrData, pauseLen)
 global Param;
 global Data;
 global State;
-
+rng(5)
 close all;
+makemovie = false;
+
 
 if ~exist('pauseLen','var')
     pauseLen = 0.3; % seconds
 end
+
+if makemovie
+    try 
+        votype = 'avifile';
+        vo = avifule('video.avi', 'fps', min(5, 1/pauseLen));
+    catch
+        votype = 'VideoWritter';
+        vo = VideoWritter('video', 'MPEG-4');
+        set(vo, 'FrameRate', min(5, 1/pauseLen));
+        open(vo); 
+    end
+end
+
 
 % Initalize Params
 %===================================================
 
 Param.choice = 'sim';
 
+% parameters for jcbb
+Param.ICthres = chi2inv(0.99,2);
+Param.JClevel = 0.99;
 
 Param.initialStateMean = [180 50 0]';
 
@@ -58,7 +76,11 @@ State.Ekf.mu = Param.initialStateMean;
 State.Ekf.Sigma = zeros(3);
 State.Ekf.da_known = [];
 
-
+coeff_lx = []; coeff_cnt = 1;
+coeff_rlx = [];
+det_cov = [];
+time_stamp = [];
+gt_m = []; pred_m = []; cov_m = [];
 for t = 1:numSteps
     plotsim(t);
 
@@ -73,7 +95,8 @@ for t = 1:numSteps
     %      motionCommand and observation
     %=================================================
     ekfpredict_sim(u);
-    ekfupdate(z);
+    [a,b,c] = ekfupdate(z);
+    gt_m = [gt_m, a]; pred_m = [pred_m, b]; cov_m = [cov_m, c]; % gather information for analyzing data association
 
     %=================================================
     %TODO: plot and evaluate filter results here
@@ -100,7 +123,82 @@ for t = 1:numSteps
     if pauseLen > 0
         pause(pauseLen);
     end
+
+    % add frame
+    if makemovie
+        F = getframe(gcf);
+        switch votype
+        case 'avifile'
+            vo = addframe(vo, F);
+        case 'VideoWritter'
+            writeVideo(vo, F);
+        otherwise
+            error('unrecognized type');
+        end
+    end
+
+
+    % gather result for analyze covariance evolve
+    if mod(t, 50) == 0
+        l = 0.5*(length(State.Ekf.mu) - 3);
+        if l >= 4
+            C = State.Ekf.Sigma;
+            coeff_lx= [coeff_lx, [C(4,6)/sqrt(C(4,4)*C(6,6)); C(4,8)/sqrt(C(4,4)*C(8,8)); C(6,8)/sqrt(C(6,6)*C(8,8))]]; coeff_cnt = coeff_cnt + 1;
+            coeff_rlx = [coeff_rlx, C(1, [4,6,8])'./[sqrt(C(1,1)*C(4,4)); sqrt(C(1,1)*C(6,6)); sqrt(C(1,1)*C(8,8))]];
+            det_cov = [det_cov, det(State.Ekf.Sigma)];
+            time_stamp = [time_stamp, t];
+        end
+    end
+
+
 end
+
+if makemovie
+    fprintf('Writing video ...');
+    switch votype
+    case 'avifile'
+        vo = close(vo);
+    case 'VideoWritter'
+        close(vo);
+    otherwise
+        error('unrecognized type');
+    end
+    fprintf('done\n');
+end
+
+
+% plot task1 .4 
+% figure;
+% plot(time_stamp, coeff_lx(1,:),'r', time_stamp, coeff_lx(2,:), 'g', time_stamp, coeff_lx(3,:), 'b'); title('evolvement of correlation coefficient between 3 landmarks');
+% saveas(gcf,'coeff_l.png');
+
+% figure;
+% plot(time_stamp, coeff_rlx(1,:),'r', time_stamp, coeff_rlx(2,:), 'g', time_stamp, coeff_rlx(3,:), 'b'); title('evolvement of correlation coefficient between robot and 3 landmarks');
+% saveas(gcf,'coeff_lr.png');
+
+% figure;
+% plot(time_stamp, log(det_cov)); title('evolvement of determinate of covariance');
+% saveas(gcf,'det.png');
+
+% plot task2 .2
+% figure;
+% l = size(gt_m,2);
+% scatter(1:l, gt_m(1,:), 'rx') , hold on; 
+% scatter(1:l, pred_m(1,:), 'b');
+% scatter(1:l, pred_m(1,:) + 3 * sqrt(cov_m(1,:)), 15, 'g', 'filled');
+% scatter(1:l, pred_m(1,:) - 3 * sqrt(cov_m(1,:)), 15, 'g', 'filled'); legend('ground truth', 'nn estimate', '3 sigma bounds', '3 sigma bounds')
+% title('DA NN: errors on x axis');
+% saveas(gcf, 'da_nn_x.png');
+
+% figure;
+% l = size(gt_m,2);
+% scatter(1:l, gt_m(2,:), 'rx') , hold on; 
+% scatter(1:l, pred_m(2,:), 'b');
+% scatter(1:l, pred_m(2,:) + 3 * sqrt(cov_m(2,:)), 15,'g' ,'filled');
+% scatter(1:l, pred_m(2,:) - 3 * sqrt(cov_m(2,:)), 15, 'g', 'filled'); legend('ground truth', 'nn estimate', '3 sigma bounds', '3 sigma bounds')
+% title('DA NN: errors on y axis');
+% saveas(gcf, 'da_nn_y.png');
+
 
 if nargout >= 1
     varargout{1} = Data;

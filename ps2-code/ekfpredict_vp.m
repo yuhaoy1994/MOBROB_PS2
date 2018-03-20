@@ -27,7 +27,7 @@ Gx(1,3) = -dt * (vc*sin(th) + vc*tan(al)*(a*cos(th) - b*sin(th))/L);
 Gx(2,3) = dt * (vc*cos(th) - vc*tan(al)*(a*sin(th) + b*cos(th))/L);
 % jacobian wrt control noise
 Ge = dt * [cos(th)-tan(al)/L*(a*sin(th)+b*cos(th)), -vc/L/(cos(al)^2)*(a*sin(th)+b*cos(th));
-		   sin(th)-tan(al)/L*(a*cos(th)-b*cos(th)), vc/L/(cos(al)^2)*(a*cos(th)-b*sin(th));
+		   sin(th)+tan(al)/L*(a*cos(th)-b*sin(th)), vc/L/(cos(al)^2)*(a*cos(th)-b*sin(th));
 		   tan(al)/L 							  , vc/L/(cos(al)^2)];
 b11 = Gx * State.Ekf.Sigma(1:3,1:3) * Gx' + Ge * Param.Qu * Ge' + Param.Qf;
 b12 = Gx * State.Ekf.Sigma(1:3,4:end);

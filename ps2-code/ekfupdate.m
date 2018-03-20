@@ -1,9 +1,9 @@
-function ekfupdate(z)
+function [gt_m, pred_m, cov_m] = ekfupdate(z)
 % EKF-SLAM update step for both simulator and Victoria Park data set
 
 global Param;
 global State;
-
+global FIELDINFO;
 
 % do pairing 
 % returns state vector indices pairing observations with landmarks
@@ -12,7 +12,6 @@ switch lower(Param.dataAssociation)
         Li = da_known(z(3,:));
     case 'nn'
         Li = da_nn(z(1:2,:), Param.R);
-        Li1 = da_nn_sol(z(1:2,:), Param.R);
     case 'jcbb'
         Li = da_jcbb(z(1:2,:), Param.R);
     otherwise
@@ -83,17 +82,28 @@ case 'batch'
 
 
 case 'seq'
-
+	gt_m = [];
+	pred_m = [];
+	cov_m = [];
 	for i = 1 : size(z,2)
-
+		try 
 		if Li(i) == -1
 			continue;
 		end
+	catch
+	keyboard 
+	end
 
 		% see if we already known this marker
 		if 2*Li(i) > length(State.Ekf.mu) - 3
 			initialize_new_landmark(z(:,i), Param.R);
         end
+
+        if strcmp(Param.choice, 'sim')
+        	gt_m = [gt_m, [FIELDINFO.MARKER_X_POS(z(3,i)); FIELDINFO.MARKER_Y_POS(z(3,i))]];
+        	pred_m = [pred_m, [State.Ekf.mu(3+2*Li(i)-1); State.Ekf.mu(3+2*Li(i))]];
+        	cov_m = [cov_m, [State.Ekf.Sigma(3+2*Li(i)-1,3+2*Li(i)-1); State.Ekf.Sigma(3+2*Li(i),3+2*Li(i))]];
+    	end
         try 
 		% get old estimation of ith landmark
 		mi = [State.Ekf.mu(3+2*Li(i)-1); State.Ekf.mu(3+2*Li(i))];

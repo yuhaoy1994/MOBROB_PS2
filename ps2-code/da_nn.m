@@ -70,7 +70,7 @@ else
 
 	end
 
-
+	m_idx = 1 : size(z,2); % index of measurement
 	while 1
 		done = true;
 		Li_tmp = [];
@@ -90,9 +90,8 @@ else
 			cost = costMat(:, i);
 			if nnz(abs(cost - costMat(idx,i)) < 0.5) >= 2
 				costMat(:,i) = []; % discard this measurement
-				
-				num_discard = nnz(Li == -1);
-				Li(i+num_discard) = -1; % discarded measurement marked as -1
+				Li(m_idx(i)) = -1; % discarded measurement marked as -1
+				m_idx(i) = [];
 				done = false;
 				break;
 			end
